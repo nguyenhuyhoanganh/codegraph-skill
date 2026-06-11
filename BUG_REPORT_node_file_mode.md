@@ -195,3 +195,65 @@ outline instead.
    `--symbols-only` are passed alongside a `symbol` but the server's
    `codegraph_node` schema doesn't support them, so agents don't believe they
    received a windowed file view.
+
+---
+
+## Resolution (2026-06-12 — fixed on `main` in commit `d9290b7`)
+
+### Confirmed root cause
+
+The "file mode" this skill documented is an **unreleased upstream feature**. In
+the CodeGraph repository, the commits introducing it land *after* the `v0.9.9`
+tag (`7175dc4` #733 "file-view node mode", `1983590` #738 "codegraph_node reads
+files like the Read tool"), and at that tag `codegraph_node`'s schema is
+`required: ['symbol']` with no `offset`/`limit`/`symbolsOnly` — byte-for-byte
+what this report's `tools/list` dump shows. The upstream `CHANGELOG.md` lists
+both the file mode **and** the `codegraph upgrade` command under
+`[Unreleased]`, which also confirms this report's secondary finding that
+`upgrade` doesn't exist in 0.9.9.
+
+The deeper process bug was in how the skill was built: it was authored from
+upstream `main` sources and verified against a binary **built from `main`**
+(via `CODEGRAPH_BIN`), never against the published release. The Ubuntu
+environment was never at fault.
+
+### Fix (all in `cg.py`, plus doc gating) — commit `d9290b7`
+
+1. **Capability detection.** When a `node` call involves file-mode arguments
+   (`--file` without a SYMBOL, or `--offset`/`--limit`/`--symbols-only`),
+   `cg.py` first issues `tools/list` on the same MCP connection and checks the
+   server's `codegraph_node` schema for an `offset` property.
+2. **Local file-read fallback** for servers without file mode (≤ 0.9.9):
+   file-only reads are served by reading the file from disk — same
+   numbered-line shape, same `offset`/`limit` semantics and 2000-line cap —
+   with the header noting `dependents unavailable on this CodeGraph version`.
+   Bare basenames are resolved through `codegraph_files` (present in every
+   version); ambiguous basenames list the candidates instead of guessing.
+3. **No more silent flag drops** (secondary issue in this report):
+   `--offset`/`--limit` alongside a SYMBOL on an old server are stripped with
+   an explicit stderr warning naming the ignored flags; `--symbols-only`
+   errors with the version requirement.
+4. **Docs** (`SKILL.md`, `references/EXAMPLES.md`, `references/REFERENCE.md`,
+   `README.md`): the dependents note and `codegraph upgrade` are marked as
+   "> 0.9.9" features, with the 0.9.9 alternative documented (re-run the
+   installer — it always fetches the latest release).
+
+### Verification — against the published 0.9.9 release binary this time
+
+Installed via the official `install.sh` into a scratch `HOME`, indexed a
+sample project, and re-ran every failure case from this report:
+
+| Case from this report | Before | After |
+|---|---|---|
+| `node --file <path> --offset --limit` | `Error: symbol must be a non-empty string` | numbered source + "dependents unavailable" note, exit 0 |
+| `node --file <bare basename>` | same error | resolved via `codegraph_files` → local read, exit 0 |
+| `node SYMBOL --offset/--limit` | flags silently ignored | full symbol + stderr warning naming the ignored flags |
+| `node --file missing.ts` | raw server error | `file not found: …`, exit 1 |
+| `node --file X --symbols-only` | raw server error | "needs a release newer than 0.9.9", exit 1 |
+| `codegraph upgrade` docs | documented as available | marked > 0.9.9, installer re-run documented |
+
+Against an upstream-`main` build (server-side file mode present), behavior is
+unchanged: the capability check sees `offset` in the schema and passes the
+call straight through — no warnings, server-produced headers (`… 44 symbols ·
+no other indexed file depends on it`). When the next CodeGraph release ships
+file mode, the fallback retires itself automatically; no skill change needed.
