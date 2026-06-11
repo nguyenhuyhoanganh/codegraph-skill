@@ -19,6 +19,8 @@ All queries go through one script bundled in this skill's `scripts/` folder (it 
 python3 scripts/cg.py <tool> ... [--project PATH]   # --project defaults to cwd; use `python` on Windows
 ```
 
+**MANDATORY: read [references/EXAMPLES.md](references/EXAMPLES.md) in full BEFORE running your first `cg.py` command in this conversation.** It shows each command's real output and the exact action to take on it. Do not skip it because the table below "looks clear" — the table only tells you WHICH command to run; the examples define HOW to use what comes back. Running commands without having read it counts as misusing this skill.
+
 ## Setup — once per project
 
 If `.codegraph/` exists in the project root, skip this — start querying. Otherwise run the bundled bootstrapper yourself (don't make the user do it):
@@ -79,4 +81,5 @@ When a response starts with `⚠️ Some files referenced below were edited sinc
 
 ## Reference
 
-[references/REFERENCE.md](references/REFERENCE.md) covers everything else: full `cg.py` flags, the plain CLI (`init`/`index`/`sync`/`affected`/`upgrade`/…) and its freshness caveat, `codegraph affected` CI recipes, supported languages, the native MCP-server alternative (`codegraph install`), and troubleshooting (lock errors, WAL, missing symbols, daemon).
+- [references/EXAMPLES.md](references/EXAMPLES.md) — worked examples: each command's real output and what to do with it (read this if unsure how to use a command or interpret its result).
+- [references/REFERENCE.md](references/REFERENCE.md) — everything else: full `cg.py` flags, the plain CLI (`init`/`index`/`sync`/`affected`/`upgrade`/…) and its freshness caveat, `codegraph affected` CI recipes, supported languages, the native MCP-server alternative (`codegraph install`), and troubleshooting (lock errors, WAL, missing symbols, daemon).

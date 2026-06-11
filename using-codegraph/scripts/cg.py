@@ -139,7 +139,12 @@ def build_parser():
     common.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT_S, help="Seconds to wait for the answer")
     common.add_argument("--raw", action="store_true", help="Print the raw JSON-RPC result instead of its text")
 
-    p = argparse.ArgumentParser(prog="cg.py", description="Query the CodeGraph index (one-shot MCP call).")
+    p = argparse.ArgumentParser(
+        prog="cg.py",
+        description="Query the CodeGraph index (one-shot MCP call).",
+        epilog="Before first use, read references/EXAMPLES.md (sibling of scripts/) — "
+               "real outputs of every command and how to act on them.",
+    )
     sub = p.add_subparsers(dest="tool", required=True)
 
     def add_parser(name, help_text):
