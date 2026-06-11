@@ -10,16 +10,20 @@ This file is for humans installing the skill; agents read `SKILL.md`.
 
 ## Prerequisites (per machine)
 
-1. **Python 3** (preinstalled on macOS/Linux; on Windows install from python.org and use `python` instead of `python3`)
-2. **CodeGraph CLI**:
-   ```bash
-   npm i -g @colbymchenry/codegraph
-   # or, without Node.js:
-   curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh
-   ```
+**Python 3** is the only hard prerequisite (preinstalled on macOS/Linux; on
+Windows install from python.org and use `python` instead of `python3`).
 
-Then index each project once: `cd your-project && codegraph init`
-(the agent will offer to do this itself if you skip it).
+Everything else is self-bootstrapping: the agent (or you) runs
+
+```bash
+python3 scripts/cg.py setup
+```
+
+which installs the CodeGraph CLI if missing (via npm, or the official
+installer — works on macOS, Linux, and Windows) and builds the project index
+(`codegraph init`) if missing. Idempotent — safe to run any time. Manual
+install, if you prefer: `npm i -g @colbymchenry/codegraph`, then
+`codegraph init` in each project.
 
 ## Install the skill
 

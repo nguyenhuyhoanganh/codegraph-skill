@@ -32,9 +32,10 @@ cp -r codegraph-skill/using-codegraph ~/.claude/skills/using-codegraph
 cp -r codegraph-skill/using-codegraph ~/.cline/skills/using-codegraph
 ```
 
-Prerequisites on the machine: Python 3 and the CodeGraph CLI
-(`npm i -g @colbymchenry/codegraph`), then `codegraph init` once per project —
-details in [`using-codegraph/README.md`](using-codegraph/README.md).
+The only prerequisite is Python 3 — the rest self-bootstraps on macOS, Linux,
+and Windows: `python3 using-codegraph/scripts/cg.py setup` (the agent runs this
+itself) installs the CodeGraph CLI and builds the project index if missing.
+Details in [`using-codegraph/README.md`](using-codegraph/README.md).
 
 ## License
 

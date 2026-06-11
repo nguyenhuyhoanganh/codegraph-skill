@@ -9,6 +9,7 @@ watcher, reconciles the index against the working tree on connect, and
 prepends a staleness banner when a referenced file is mid-sync.
 
 Usage:
+  cg.py setup                      # bootstrap: install codegraph + build the index if missing
   cg.py explore "<question or symbol names>" [--max-files N]
   cg.py node [SYMBOL] [--file F] [--line N] [--no-code] [--offset N] [--limit N] [--symbols-only]
   cg.py search <query> [--kind K] [--limit N]
@@ -20,6 +21,8 @@ Usage:
 
 Common flags: --project PATH (default: cwd), --timeout SECONDS, --raw
 Environment:  CODEGRAPH_BIN overrides the `codegraph` binary (may include args).
+
+Works on macOS, Linux, and Windows (use `python` instead of `python3` on Windows).
 
 Exit codes: 0 ok · 1 tool reported an error · 2 setup/usage error · 3 timeout
 """
@@ -34,18 +37,30 @@ import subprocess
 import sys
 import threading
 
+# When stdout/stderr is a pipe on Windows, Python falls back to the legacy
+# code page and crashes printing the server's UTF-8 output (the staleness
+# banner). Force UTF-8 with replacement everywhere; line-buffer so our
+# progress lines interleave correctly with child-process output.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace", line_buffering=True)
+
 # The daemon answers warm queries in milliseconds, but the *first* call in a
 # project pays daemon startup plus a catch-up sync of files edited since the
 # last session - on a large repo that reconciliation can take tens of seconds.
 DEFAULT_TIMEOUT_S = 120
 
+INSTALL_SH_URL = "https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh"
+INSTALL_PS1_URL = "https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.ps1"
+
 INSTALL_HINT = (
     "codegraph binary not found.\n"
-    "Install it (no Node.js required):\n"
-    "  curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh\n"
-    "or, with Node available:  npm i -g @colbymchenry/codegraph\n"
-    "Then open a fresh shell (the installer does not modify the current one),\n"
-    "or point CODEGRAPH_BIN at the binary."
+    "Run the bundled bootstrapper - it installs codegraph and builds the index:\n"
+    "  python3 scripts/cg.py setup     (python scripts/cg.py setup on Windows)\n"
+    "Manual alternatives: `npm i -g @colbymchenry/codegraph`, or\n"
+    f"  curl -fsSL {INSTALL_SH_URL} | sh   (lands at ~/.local/bin/codegraph)\n"
+    f"  Windows: irm {INSTALL_PS1_URL} | iex\n"
+    "Or point CODEGRAPH_BIN at an existing binary."
 )
 
 
@@ -53,9 +68,69 @@ def resolve_binary():
     override = os.environ.get("CODEGRAPH_BIN")
     if override:
         return shlex.split(override)
-    if shutil.which("codegraph"):
-        return ["codegraph"]
+    found = shutil.which("codegraph")
+    if found:
+        # Full path, not the bare name: on Windows the npm shim is
+        # codegraph.cmd, which subprocess can only spawn by its real path.
+        return [found]
+    # Where the official installers put the binary - covers a fresh install
+    # whose PATH entry hasn't reached this shell yet.
+    home = os.path.expanduser("~")
+    candidates = [
+        os.path.join(home, ".local", "bin", "codegraph"),
+        os.path.join(home, ".codegraph", "current", "bin", "codegraph"),
+    ]
+    if os.name == "nt" and os.environ.get("LOCALAPPDATA"):
+        win_bin = os.path.join(os.environ["LOCALAPPDATA"], "codegraph", "current", "bin")
+        candidates += [os.path.join(win_bin, "codegraph.exe"), os.path.join(win_bin, "codegraph")]
+    for path in candidates:
+        if os.path.isfile(path) and os.access(path, os.X_OK):
+            return [path]
     return None
+
+
+def install_codegraph():
+    """Install the codegraph CLI; returns the resolved binary or None."""
+    npm = shutil.which("npm")
+    if npm:
+        print("[setup] codegraph not found - installing with npm i -g @colbymchenry/codegraph ...")
+        if subprocess.call([npm, "i", "-g", "@colbymchenry/codegraph"]) == 0:
+            binary = resolve_binary()
+            if binary:
+                return binary
+        print("[setup] npm install did not produce a usable binary; trying the official installer...",
+              file=sys.stderr)
+    if os.name == "nt":
+        print("[setup] running the official Windows installer (no Node required)...")
+        rc = subprocess.call(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
+                              "-Command", f"irm {INSTALL_PS1_URL} | iex"])
+    else:
+        print("[setup] running the official installer (no Node required)...")
+        rc = subprocess.call(["sh", "-c", f"curl -fsSL {INSTALL_SH_URL} | sh"])
+    return resolve_binary() if rc == 0 else None
+
+
+def run_setup(args):
+    """Idempotent bootstrap: binary present -> index present -> ready."""
+    project = os.path.abspath(args.project)
+    binary = resolve_binary()
+    if binary is None:
+        binary = install_codegraph()
+        if binary is None:
+            print(INSTALL_HINT, file=sys.stderr)
+            return 2
+    print(f"[setup] codegraph binary: {' '.join(binary)}")
+
+    index_dir = os.path.join(project, ".codegraph")
+    if os.path.isdir(index_dir):
+        print(f"[setup] index present: {index_dir}")
+    else:
+        print(f"[setup] no .codegraph/ in {project} - building the index (one-time)...")
+        if subprocess.call(binary + ["init", project]) != 0:
+            print("[setup] `codegraph init` failed - see its output above.", file=sys.stderr)
+            return 2
+    print('[setup] ready. Try: python3 scripts/cg.py explore "<your question>" --project ' + project)
+    return 0
 
 
 def build_parser():
@@ -104,6 +179,8 @@ def build_parser():
     s.add_argument("--max-depth", type=int, dest="maxDepth")
 
     add_parser("status", "Index health: file/node/edge counts, backend, pending sync")
+
+    add_parser("setup", "Bootstrap: install the codegraph CLI and build this project's index if missing")
     return p
 
 
@@ -136,6 +213,8 @@ def tool_arguments(args):
 
 def main():
     args = build_parser().parse_args()
+    if args.tool == "setup":
+        return run_setup(args)
     if args.tool == "node" and not args.symbol and not args.file:
         sys.exit("node needs a SYMBOL, a --file, or both (see --help)")
 
@@ -151,7 +230,8 @@ def main():
         parent = os.path.dirname(probe)
         if parent == probe:
             print(f"CodeGraph isn't initialized for {project}.\n"
-                  f"Build the index first:  codegraph init {shlex.quote(project)}", file=sys.stderr)
+                  f"Bootstrap it (installs nothing that's already there):\n"
+                  f"  python3 scripts/cg.py setup --project {shlex.quote(project)}", file=sys.stderr)
             return 1
         probe = parent
     # A connection can rarely wedge if it lands exactly as the daemon starts a

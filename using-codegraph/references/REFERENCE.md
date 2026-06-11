@@ -53,6 +53,11 @@ One-shot MCP call routed through CodeGraph's shared per-project daemon (auto-spa
 Common flags on every subcommand: `--project PATH` (default: cwd) · `--timeout SECONDS` (default 120) · `--raw` (raw JSON-RPC result).
 
 ```bash
+cg.py setup
+    # Bootstrap, idempotent, cross-platform (macOS/Linux/Windows): installs the
+    # codegraph CLI when missing (npm if available, else the official shell or
+    # PowerShell installer) and runs `codegraph init` when .codegraph/ is
+    # missing. The only cg.py subcommand that touches the network or system.
 cg.py explore "<query>" [--max-files N]
     # Query = natural-language question OR bag of symbol/file names.
     # Returns verbatim source of relevant symbols grouped by file + call paths.

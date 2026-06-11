@@ -19,16 +19,15 @@ All queries go through one script bundled in this skill's `scripts/` folder (it 
 python3 scripts/cg.py <tool> ... [--project PATH]   # --project defaults to cwd; use `python` on Windows
 ```
 
-## Setup — check once per project
+## Setup — once per project
 
-1. `.codegraph/` exists in the project root → ready, start querying.
-2. No `.codegraph/` but `codegraph` is installed → run `codegraph init` (creates `.codegraph/` and builds the index; seconds on small repos, a few minutes on huge ones), then query.
-3. `codegraph` not installed → install, then init:
-   ```bash
-   curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh   # macOS/Linux, no Node needed
-   # or: npm i -g @colbymchenry/codegraph
-   ```
-   The installer doesn't modify the current shell — use a new shell or the binary's full path (`CODEGRAPH_BIN=~/.codegraph/bin/codegraph`).
+If `.codegraph/` exists in the project root, skip this — start querying. Otherwise run the bundled bootstrapper yourself (don't make the user do it):
+
+```bash
+python3 scripts/cg.py setup [--project PATH]
+```
+
+Idempotent, works on macOS/Linux/Windows. It installs the codegraph CLI if missing (via npm, or the official installer when npm is absent — that's the only step needing network), then runs `codegraph init` if the index is missing (one-time; seconds on small repos, a few minutes on huge ones). Any query that finds something missing prints the same fix, so you can also just query and follow the error.
 
 ## Tool selection by intent
 
