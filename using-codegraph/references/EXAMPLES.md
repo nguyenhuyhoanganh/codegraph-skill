@@ -1,8 +1,10 @@
 # Worked examples — command in, output out, what to do with it
 
-Real (abridged) outputs. Every command runs from any directory; add
-`--project /path/to/repo` when the project isn't the cwd. Use `python`
-instead of `python3` on Windows.
+Genuine captured outputs (from indexing the CodeGraph repo itself); `...`
+marks trimmed lines, user paths are sanitized, and counts/line numbers will
+differ in your project — the *shape* is what to rely on. Every command runs
+from any directory; add `--project /path/to/repo` when the project isn't the
+cwd. Use `python` instead of `python3` on Windows.
 
 ## Contents
 
@@ -38,10 +40,10 @@ $ python3 scripts/cg.py explore "how does the file watcher trigger an incrementa
 2. detectLanguage (src/extraction/grammars.ts:260)
    ...
 ## Exploration: how does the file watcher trigger an incremental sync
-Found 127 symbols across 16 files.
+Found 126 symbols across 15 files.
 
 ### Blast radius — what depends on these (update/verify before editing)
-- `FileWatcher` (src/sync/watcher.ts:161) — 5 callers in `src/index.ts`, `src/sync/index.ts`; tests: `__tests__/watcher.test.ts`
+- `FileWatcher` (src/sync/watcher.ts:161) — 5 callers in `src/index.ts`, `src/sync/index.ts`; tests: `__tests__/watch-policy.test.ts`, `__tests__/watcher.test.ts`
   ...
 
 ### Source Code
@@ -83,9 +85,13 @@ Wider check before a refactor:
 
 ```
 $ python3 scripts/cg.py impact getExploreBudget --depth 2
-## Impact: "getExploreBudget" affects 4 symbols
+## Impact: "getExploreBudget" affects 7 symbols
+
 **src/mcp/tools.ts:**
-getExploreBudget:82, getTools:673, handleExplore:1575
+getExploreBudget:82, getTools:673, handleExplore:1575, execute:991
+
+**__tests__/explore-output-budget.test.ts:**
+explore-output-budget.test.ts:1
 ...
 ```
 
@@ -120,7 +126,7 @@ Read it (instead of your file-read tool — same bytes, plus dependents):
 
 ```
 $ python3 scripts/cg.py node --file src/db/queries.ts --offset 170 --limit 8
-**src/db/queries.ts** — 1840 lines, 78 symbols · used by 34 files: src/context/index.ts, src/graph/queries.ts, src/index.ts, +26 more
+**src/db/queries.ts** — 1840 lines, 78 symbols · used by 34 files: __tests__/db-perf.test.ts, __tests__/resolution.test.ts, __tests__/security.test.ts, src/context/index.ts, src/extraction/index.ts, src/graph/queries.ts, src/graph/traversal.ts, src/index.ts, +26 more
 
 173  /**
 174   * Query builder for the knowledge graph database
