@@ -198,7 +198,7 @@ outline instead.
 
 ---
 
-## Resolution (2026-06-12 — fixed on `main` in commit `d9290b7`)
+## Resolution (2026-06-12 — fix on this branch in commit `1d526d4`, pending review before merge to main)
 
 ### Confirmed root cause
 
@@ -217,7 +217,7 @@ upstream `main` sources and verified against a binary **built from `main`**
 (via `CODEGRAPH_BIN`), never against the published release. The Ubuntu
 environment was never at fault.
 
-### Fix (all in `cg.py`, plus doc gating) — commit `d9290b7`
+### Fix (all in `cg.py`, plus doc gating) — commit `1d526d4` on this branch
 
 1. **Capability detection.** When a `node` call involves file-mode arguments
    (`--file` without a SYMBOL, or `--offset`/`--limit`/`--symbols-only`),
