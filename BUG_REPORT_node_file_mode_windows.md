@@ -141,3 +141,58 @@ proposition (and burning a call + an error round-trip first).
 - `node <SYMBOL> --file <path>` (i.e. `--file` used to **pin** an already-named
   symbol, as opposed to file-only mode) works correctly — the bug is
   specific to the `--file`-without-`SYMBOL` invocation shape.
+
+---
+
+## Resolution cross-reference (2026-06-12)
+
+This run independently confirms the root cause already established in
+`BUG_REPORT_node_file_mode.md` — and adds two valuable data points:
+
+1. **Third platform, second install path.** Windows/arm64 via
+   `npm i -g @colbymchenry/codegraph` reproduces byte-identical behavior to
+   Linux/aarch64 via the standalone installer: the failure lives in the
+   published `0.9.9` `tools.js` (`required: ['symbol']`,
+   `validateString(args.symbol)` first), not in any platform, shell, or
+   install-method difference. The trace into
+   `@colbymchenry/codegraph-win32-arm64/lib/dist/mcp/tools.js` matches the
+   `v0.9.9` git tag exactly.
+2. **The run used the pre-fix skill.** The raw server error surfacing
+   directly (and `--raw` echoing the server's `isError` result) is only
+   possible in `cg.py` *before* commit `1d526d4` on this branch — the fixed
+   version never sends a symbol-less `codegraph_node` call to the server; it
+   detects the missing capability via `tools/list` and reads the file locally.
+   So this report describes `main` (pre-fix) behavior and does not indicate a
+   gap in the fix.
+
+### What the same commands produce after the fix (this branch)
+
+Re-verified against the published 0.9.9 release (scratch-HOME install,
+official installer; macOS — Windows itself not re-run, but the code paths
+involved are platform-neutral: same-connection MCP `tools/list` + local file
+read with `os.path` handling for both `/` and `\`):
+
+```
+$ python cg.py node --file axon/sub/svc.ts --offset 3 --limit 4 --project <proj>
+**axon/sub/svc.ts** — 15 lines · dependents unavailable on this CodeGraph version (needs a release newer than 0.9.9)
+
+3	export function approve(id: string) { return check(id); }
+...
+(lines 3–6 of 15 — pass `offset`/`limit` for another range, ...)
+```
+
+- exit 0; works for nested forward-slash paths and bare basenames
+  (resolved through `codegraph_files`).
+- One follow-up gap this report exposed **was** fixed on this branch: the
+  local fallback used to ignore `--raw`; it now emits the same
+  `{"content":[{"type":"text",...}]}` result shape a server file-mode call
+  returns.
+
+### Minor observations — triage
+
+- `files --format tree --max-depth N` header showing the total file count
+  over a depth-truncated tree: upstream CLI cosmetic behavior (same in
+  `v0.9.9` sources), not a skill defect — no action here.
+- Vietnamese-prose `explore` being "luck of the match": expected and already
+  documented in `SKILL.md` ("matches code identifiers, not prose; query with
+  the symbol names the question implies").

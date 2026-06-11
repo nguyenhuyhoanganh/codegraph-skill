@@ -301,13 +301,17 @@ def polyfill_file_read(project, args, locate):
     window = all_lines[start - 1:start - 1 + count]
 
     rel = os.path.relpath(path, project)
-    print(f"**{rel}** — {total} lines · dependents unavailable on this CodeGraph version "
-          "(needs a release newer than 0.9.9)\n")
-    for i, line in enumerate(window, start):
-        print(f"{i}\t{line}")
     end = start + len(window) - 1 if window else start
-    print(f"\n(lines {start}–{end} of {total} — pass `offset`/`limit` for another range, "
-          "or `cg.py node <symbol>` for one symbol in full)")
+    text = (f"**{rel}** — {total} lines · dependents unavailable on this CodeGraph version "
+            "(needs a release newer than 0.9.9)\n\n"
+            + "\n".join(f"{i}\t{line}" for i, line in enumerate(window, start))
+            + f"\n\n(lines {start}–{end} of {total} — pass `offset`/`limit` for another range, "
+            "or `cg.py node <symbol>` for one symbol in full)")
+    if args.raw:
+        # Same result shape a server file-mode call would produce.
+        print(json.dumps({"content": [{"type": "text", "text": text}]}, indent=2))
+    else:
+        print(text)
     return 0
 
 
