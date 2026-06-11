@@ -33,6 +33,8 @@ codegraph upgrade --check    # just report whether an update exists
 codegraph upgrade <version>  # pin a specific version
 ```
 
+`upgrade` only exists in releases **newer than 0.9.9** — if it reports `unknown command`, update by re-running the install command above instead (the installer always fetches the latest release).
+
 ## Project lifecycle
 
 | Command | Purpose | Flags |
@@ -66,6 +68,10 @@ cg.py node [SYMBOL] [--file F] [--line N] [--no-code] [--offset N] [--limit N] [
     #   every overload's body when the name is ambiguous; pin with --file/--line).
     # --file alone: read the file like Read (<n> + tab + line, --offset/--limit, 2000-line cap)
     #   plus a note of which files depend on it. --symbols-only: structure, no source.
+    # Version note: server-side file mode needs CodeGraph > 0.9.9. On older
+    #   servers cg.py detects this and reads the file locally itself (same
+    #   numbered lines; the dependents note is replaced by "unavailable"),
+    #   and --offset/--limit alongside a SYMBOL are ignored with a warning.
 cg.py search <query> [--kind function|method|class|interface|type|variable|route|component] [--limit N]
 cg.py callers <symbol> [--limit N]
 cg.py callees <symbol> [--limit N]

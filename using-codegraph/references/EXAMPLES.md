@@ -139,3 +139,7 @@ $ python3 scripts/cg.py node --file src/db/queries.ts --offset 170 --limit 8
 
 **What to do:** treat this exactly like file-read output (line numbers are
 real; safe to base edits on). `--offset`/`--limit` page through big files.
+
+On CodeGraph ≤ 0.9.9 (no server-side file mode) the same command still works —
+`cg.py` reads the file locally — but the header says `dependents unavailable on
+this CodeGraph version` instead of `used by N files`. Everything else is identical.

@@ -84,7 +84,8 @@ or `npm -g` lacks permissions) and the per-project index (`codegraph init`).
 
 ## Known limitations
 
-- Tested on macOS against CodeGraph 0.9.9 (Claude Code as the host agent); Windows is untested.
+- Tested on macOS and Ubuntu (arm64) against both the published CodeGraph 0.9.9 release and an upstream main build; Windows is untested.
+- The "which files depend on it" note in `node --file` output needs a CodeGraph release newer than 0.9.9; on 0.9.9 the source is served by a local fallback with a "dependents unavailable" note instead.
 - The first query in a freshly opened project is slower (daemon startup + index catch-up).
 - Very rarely a query can hit a daemon re-sync window and stall; `cg.py` retries on a fresh
   connection automatically.

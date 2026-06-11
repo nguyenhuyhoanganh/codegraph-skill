@@ -31,6 +31,7 @@ import argparse
 import json
 import os
 import queue
+import re
 import shlex
 import shutil
 import subprocess
@@ -254,6 +255,62 @@ def main():
     return 3
 
 
+class ToolError(Exception):
+    """The server answered the call with a JSON-RPC error."""
+
+
+def result_text(result):
+    return "".join(b.get("text", "") for b in result.get("content", []) if b.get("type") == "text")
+
+
+def polyfill_file_read(project, args, locate):
+    """File-only `node` read for servers without file mode (codegraph <= 0.9.9).
+
+    Reads the file from disk and prints the same numbered-line shape the real
+    file mode produces; only the dependents note can't be reproduced (that
+    data comes from the newer server).
+    """
+    if args.symbolsOnly:
+        print("--symbols-only needs a CodeGraph release newer than 0.9.9; "
+              "use `cg.py node <symbol>` or `cg.py explore` on this version", file=sys.stderr)
+        return 1
+
+    raw = args.file
+    candidates = [raw] if os.path.isabs(raw) else [os.path.join(project, raw), os.path.abspath(raw)]
+    path = next((p for p in candidates if os.path.isfile(p)), None)
+    if path is None and "/" not in raw and os.sep not in raw:
+        matches = locate(raw)
+        if len(matches) == 1:
+            path = os.path.join(project, matches[0])
+        elif len(matches) > 1:
+            print(f"'{raw}' matches {len(matches)} indexed files - pass a fuller path:\n  "
+                  + "\n  ".join(matches[:10]), file=sys.stderr)
+            return 1
+    if path is None or not os.path.isfile(path):
+        print(f"file not found: {raw} (tried under {project} and the current directory)", file=sys.stderr)
+        return 1
+
+    with open(path, encoding="utf-8", errors="replace") as f:
+        all_lines = f.read().splitlines()
+    total = len(all_lines)
+    start = max(args.offset or 1, 1)
+    if total and start > total:
+        print(f"offset {start} is past the end of the file ({total} lines)", file=sys.stderr)
+        return 1
+    count = min(args.limit or 2000, 2000)  # same default window as the Read tool
+    window = all_lines[start - 1:start - 1 + count]
+
+    rel = os.path.relpath(path, project)
+    print(f"**{rel}** — {total} lines · dependents unavailable on this CodeGraph version "
+          "(needs a release newer than 0.9.9)\n")
+    for i, line in enumerate(window, start):
+        print(f"{i}\t{line}")
+    end = start + len(window) - 1 if window else start
+    print(f"\n(lines {start}–{end} of {total} — pass `offset`/`limit` for another range, "
+          "or `cg.py node <symbol>` for one symbol in full)")
+    return 0
+
+
 def attempt(binary, project, args, timeout_s):
     """One server connection + tool call. Raises queue.Empty on timeout."""
     proc = subprocess.Popen(
@@ -295,6 +352,31 @@ def attempt(binary, project, args, timeout_s):
             except json.JSONDecodeError:
                 continue  # stray non-JSON output; ignore
 
+    def await_response(rpc_id):
+        while True:
+            msg = next_message()
+            if msg.get("method") == "roots/list" and "id" in msg:
+                # Server-initiated request; we already pinned the root via --path.
+                send({"jsonrpc": "2.0", "id": msg["id"],
+                      "result": {"roots": [{"uri": "file://" + project, "name": "project"}]}})
+            elif msg.get("id") == rpc_id:
+                if "error" in msg:
+                    raise ToolError(msg["error"].get("message", json.dumps(msg["error"])))
+                return msg["result"]
+
+    rpc_seq = iter(range(2, 1000))
+
+    def call_tool(name, arguments):
+        rpc_id = next(rpc_seq)
+        send({"jsonrpc": "2.0", "id": rpc_id, "method": "tools/call",
+              "params": {"name": name, "arguments": arguments}})
+        return await_response(rpc_id)
+
+    def locate(basename):
+        # Resolve a bare basename through the index (works on every version).
+        listing = call_tool("codegraph_files", {"pattern": "**/" + basename, "format": "flat"})
+        return re.findall(r"^- (\S+)", result_text(listing), re.M)
+
     exit_code = 0
     try:
         send({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
@@ -303,33 +385,44 @@ def attempt(binary, project, args, timeout_s):
             "clientInfo": {"name": "codegraph-skill", "version": "1.0"},
         }})
         send({"jsonrpc": "2.0", "method": "notifications/initialized"})
-        send({"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {
-            "name": "codegraph_" + args.tool,
-            "arguments": tool_arguments(args),
-        }})
 
-        result = None
-        while result is None:
-            msg = next_message()
-            if msg.get("method") == "roots/list" and "id" in msg:
-                # Server-initiated request; we already pinned the root via --path.
-                send({"jsonrpc": "2.0", "id": msg["id"],
-                      "result": {"roots": [{"uri": "file://" + project, "name": "project"}]}})
-            elif msg.get("id") == 2:
-                if "error" in msg:
-                    print(msg["error"].get("message", json.dumps(msg["error"])), file=sys.stderr)
-                    return 1
-                result = msg["result"]
+        tool_args = tool_arguments(args)
+
+        # File mode (symbol-less node, offset/limit/symbolsOnly) only exists in
+        # CodeGraph releases newer than 0.9.9. When those arguments are in play,
+        # ask the server what its codegraph_node actually supports and adapt,
+        # instead of letting it reject the call.
+        if args.tool == "node" and (not args.symbol or args.offset is not None
+                                    or args.limit is not None or args.symbolsOnly):
+            send({"jsonrpc": "2.0", "id": 1000, "method": "tools/list"})
+            tools = await_response(1000).get("tools", [])
+            node_tool = next((t for t in tools if t.get("name") == "codegraph_node"), {})
+            file_mode = "offset" in node_tool.get("inputSchema", {}).get("properties", {})
+            if not file_mode:
+                if not args.symbol:
+                    return polyfill_file_read(project, args, locate)
+                dropped = [name for name, value in (("offset", args.offset), ("limit", args.limit),
+                                                    ("symbolsOnly", args.symbolsOnly)) if value]
+                for name in dropped:
+                    tool_args.pop(name, None)
+                print(f"warning: this CodeGraph version's codegraph_node ignores {'/'.join(dropped)} - "
+                      "showing the full symbol (a release newer than 0.9.9 adds windowed reads)",
+                      file=sys.stderr)
+
+        result = call_tool("codegraph_" + args.tool, tool_args)
 
         if args.raw:
             print(json.dumps(result, indent=2))
         else:
-            for block in result.get("content", []):
-                if block.get("type") == "text":
-                    print(block["text"])
+            text = result_text(result)
+            if text:
+                print(text)
         if result.get("isError"):
             exit_code = 1
 
+    except ToolError as e:
+        print(str(e), file=sys.stderr)
+        exit_code = 1
     except (EOFError, BrokenPipeError) as e:
         print(f"codegraph server exited unexpectedly: {e}\n{''.join(stderr_tail)[-2000:]}", file=sys.stderr)
         exit_code = 2

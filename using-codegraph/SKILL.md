@@ -37,7 +37,7 @@ Idempotent, works on macOS/Linux/Windows. It installs the codegraph CLI if missi
 |---|---|
 | Almost anything: "how does X work", architecture, a bug, "what/where is X", surveying an area | `cg.py explore "<question or symbol names>"` — **PRIMARY, call FIRST; usually the ONLY call needed** |
 | "How does X reach/become Y?" — a flow or path | `cg.py explore "X Y"` naming the symbols that span the flow — it surfaces the call path among them, including dynamic-dispatch hops (callbacks, React re-render, JSX children) grep can't follow |
-| Read a source file (any time you'd use your file-read tool) | `cg.py node --file src/auth/session.ts` — same line-numbered source a file-read tool gives you (`--offset`/`--limit` work too), plus which files depend on it |
+| Read a source file (any time you'd use your file-read tool) | `cg.py node --file src/auth/session.ts` — same line-numbered source a file-read tool gives you (`--offset`/`--limit` work too), plus which files depend on it (on CodeGraph ≤ 0.9.9 the dependents note shows "unavailable"; the source still comes back) |
 | One symbol you're about to read or edit | `cg.py node MySymbol` — verbatim source + caller/callee trail; for an overloaded name returns EVERY definition's body in one call |
 | "Where is the symbol named X?" (location only) | `cg.py search X` |
 | "What calls this?" / "What does this call?" | `cg.py callers X` / `cg.py callees X` |
@@ -65,7 +65,7 @@ When a response starts with `⚠️ Some files referenced below were edited sinc
 - **Don't grep first** for a symbol by name — `search` returns kind + location + signature in one call.
 - **Don't loop `node` over many symbols** — one `explore` returns them all grouped by file. `node` is for a single symbol.
 - **If your agent can spawn subagents (e.g. Claude Code's Explore/Task agents): don't delegate exploration to them** — a subagent greps/reads files and bypasses the index. CodeGraph IS the pre-built index; answer directly with it. (Single-loop agents like Cline: ignore, this can't happen.)
-- **Don't open an indexed source file with your file-read tool** — `cg.py node --file` serves the same bytes faster with the blast radius attached.
+- **Don't open an indexed source file with your file-read tool** — `cg.py node --file` serves the same bytes, plus the file's dependents when the server supports it (CodeGraph > 0.9.9).
 
 ## When NOT to use
 
