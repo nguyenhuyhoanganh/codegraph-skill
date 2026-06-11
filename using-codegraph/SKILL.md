@@ -46,7 +46,7 @@ Idempotent, works on macOS/Linux/Windows. It installs the codegraph CLI if missi
 | "Is the index ready / healthy?" | `cg.py status` |
 | Which test files does this diff affect? | `git diff --name-only \| codegraph affected --stdin` (plain CLI) |
 
-`explore` accepts a natural-language question OR a bag of symbol/file names (`"AuthService loginUser session.ts"`). Treat the source it returns as already read — do NOT re-open those files.
+`explore` accepts a natural-language question OR a bag of symbol/file names (`"AuthService loginUser session.ts"`). It matches **code identifiers, not prose** — when the user asks in another language (Vietnamese, Japanese, …), do not paste their sentence verbatim; query with the symbol names / English terms it implies (`"FileWatcher sync debounce"`, not `"trình theo dõi tệp đồng bộ thế nào"`). Treat the source it returns as already read — do NOT re-open those files.
 
 ## Common chains
 
