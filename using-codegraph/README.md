@@ -53,6 +53,35 @@ using-codegraph/
 Everything runs locally; no data leaves the machine (network is used only for
 the one-time CLI install/upgrade). License: MIT, matching CodeGraph itself.
 
+## Full preconditions
+
+Verified with a clean-environment test (empty HOME, PATH stripped to `/usr/bin:/bin`,
+no Node/npm/codegraph): copy the skill → agent runs `setup` → ready in ~15 s.
+
+**Hard requirements (the skill cannot create these):**
+
+1. An agent that can execute shell commands (Claude Code, Cline, …) — chat-only agents can't use it.
+2. Python 3.7+ (3.9 verified; macOS ships it with the developer tools, most Linux distros include it; Windows: install it and use `python`).
+3. First run on each machine only: internet access plus ONE of npm / `curl`+`tar`
+   (preinstalled on macOS and Linux) / PowerShell (Windows), so `setup` can download
+   the CodeGraph CLI. Fully offline afterwards.
+
+**Self-bootstrapped by `cg.py setup`:** the CodeGraph CLI install (~180 MB one-time,
+no root needed — falls back to the official user-local installer when npm is missing
+or `npm -g` lacks permissions) and the per-project index (`codegraph init`).
+
+**Environment caveats:**
+
+- Supported OS/arch: macOS, Linux, Windows on x64/arm64. Alpine/musl or BSD: no
+  bundled build — needs the npm path with Node 20–24.
+- Project must use [supported languages](references/REFERENCE.md#supported-languages),
+  else the index is empty and the skill adds nothing.
+- Keep the project (and its `.codegraph/`) on a local disk — SQLite WAL is unreliable
+  on network shares and WSL2 `/mnt`.
+- Sandboxes that block background processes or network: the daemon may not start
+  (`CODEGRAPH_NO_DAEMON=1` + manual `codegraph sync` still work) and first-run
+  install needs the network allowed once.
+
 ## Known limitations
 
 - Tested on macOS against CodeGraph 0.9.9 (Claude Code as the host agent); Windows is untested.
