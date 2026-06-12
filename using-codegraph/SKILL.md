@@ -52,6 +52,8 @@ Idempotent, works on macOS/Linux/Windows. It installs the codegraph CLI if missi
 
 `explore` accepts a natural-language question OR a bag of symbol/file names (`"AuthService loginUser session.ts"`). It matches **code identifiers, not prose** — when the user asks in another language (Vietnamese, Japanese, …), do not paste their sentence verbatim; query with the symbol names / English terms it implies (`"FileWatcher sync debounce"`, not `"trình theo dõi tệp đồng bộ thế nào"`). Treat the source it returns as already read — do NOT re-open those files.
 
+`callers`/`callees`/`impact` resolve a **method or function name, not a container**. `cg.py callees AuthService` (a class) returns nothing — a class has no outgoing calls of its own; query a specific method, or use `cg.py explore "AuthService"` / `cg.py node AuthService` for the class overview. These commands also can't see calls made through **reflection, dependency injection, or framework dispatch** — a Spring `doFilterInternal`, an overridden lifecycle callback, a registered route handler have no static call edge for `callers` to follow, so they look "uncalled". For those, reach for `explore` (it follows dynamic-dispatch hops grep/callers can't) or the route/impact views. And on a **name shared by several definitions** (`doFilterInternal` across many filters, or a class and a file both named `SecurityService`), `callers`/`callees`/`impact` aggregate across *all* of them, so results can repeat or mix sources — narrow first with `cg.py search <name> --kind …` to confirm the one target you mean. (Per-definition pinning — `--file`/`--line` on these commands, as `node` already has — is not available yet.)
+
 ## Common chains
 
 - **Flow / "how does X reach Y"**: ONE `explore` with the symbol names spanning the flow. Don't reconstruct the path with `search` + `callers`.
@@ -82,6 +84,7 @@ When a response starts with `⚠️ Some files referenced below were edited sinc
 - A tool reporting "not initialized" means `.codegraph/` is missing — run `cg.py setup` (Setup above).
 - Cross-file resolution is best-effort name matching; ambiguous calls may return multiple candidates.
 - The first `cg.py` call in a project pays daemon startup + a catch-up sync (seconds; longer right after large external changes like a `git pull`). Later calls are fast.
+- `explore`'s depth is **budgeted server-side and scales with repo size**: on a very large project (thousands of files) a single call covers a bounded set of files, and the number of useful `explore` calls is limited. Don't spend that budget probing — widen one call with `--max-files N` (e.g. `--max-files 30`) to pull in more source at once, and navigate the rest with the cheap narrow commands (`search`, `files`, `node`). Use `explore` for broad "how does this area work" questions; for a specific symbol or file, go straight to `search`/`node`.
 - No Python on this machine? The plain `codegraph` CLI still covers `query`/`callers`/`callees`/`impact`/`files`/`status` (see "Plain CLI equivalents" in [references/REFERENCE.md](references/REFERENCE.md)) — run `codegraph sync` after edits, since the plain CLI skips the freshness daemon. Only `explore` and `node` need the script.
 
 ## Reference

@@ -1,3 +1,4 @@
 # Local working clone of the upstream CodeGraph repo (build/test scratch, not part of this skill)
 codegraph-src/
 .DS_Store
+__pycache__/

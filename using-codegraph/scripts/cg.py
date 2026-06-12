@@ -137,10 +137,33 @@ def run_setup(args):
     if os.path.isdir(index_dir):
         print(f"[setup] index present: {index_dir}")
     else:
-        print(f"[setup] no .codegraph/ in {project} - building the index (one-time)...")
-        if subprocess.call(binary + ["init", project]) != 0:
+        print(f"[setup] no .codegraph/ in {project} - building the index "
+              "(one-time; seconds on small repos, a few minutes on huge ones)...")
+        # Capture init's output rather than streaming it. The indexer draws a
+        # live spinner; through a non-TTY agent pipe each redraw lands as its
+        # own line, so hundreds of progress frames bury the agent's context.
+        # Keep only the two summary lines ("Indexed N files", "N nodes, M
+        # edges"); on failure surface everything so the error stays visible.
+        proc = subprocess.run(binary + ["init", project], stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, text=True,
+                              encoding="utf-8", errors="replace")
+        if proc.returncode != 0:
+            sys.stderr.write(proc.stdout)
             print("[setup] `codegraph init` failed - see its output above.", file=sys.stderr)
             return 2
+        summary = {}
+        for line in proc.stdout.splitlines():
+            line = line.strip()
+            if not any(ch.isdigit() for ch in line):
+                continue  # spinner frames carry no counts; skip them
+            low = line.lower()
+            if "indexed" in low and "file" in low:
+                summary["files"] = line  # last write wins -> the final frame
+            elif "node" in low or "edge" in low:
+                summary["graph"] = line
+        for key in ("files", "graph"):
+            if key in summary:
+                print(f"[setup] {summary[key]}")
     proj_q = f'"{project}"' if " " in project else project
     print(f'[setup] ready. Try: {CG} explore "<your question>" --project {proj_q}')
     return 0
@@ -166,16 +189,16 @@ def build_parser():
 
     s = add_parser("explore", "PRIMARY: source of all relevant symbols for a question, in one call")
     s.add_argument("query", help='Natural-language question or a bag of symbol/file names ("AuthService login session.ts")')
-    s.add_argument("--max-files", type=int, dest="maxFiles", help="Max files to include source from (default 12)")
+    s.add_argument("--max-files", "--maxFiles", type=int, dest="maxFiles", help="Max files to include source from (default 12); raise it on big repos")
 
     s = add_parser("node", "Read one file (like Read) or one symbol's source + caller/callee trail")
     s.add_argument("symbol", nargs="?", help="Symbol name; omit it and pass --file to read a whole file")
     s.add_argument("--file", help="File path or basename: alone = read the file; with SYMBOL = pin an overload")
     s.add_argument("--line", type=int, help="Pin an overloaded symbol to the definition at/near this line")
-    s.add_argument("--no-code", action="store_true", help="Symbol mode: omit the body (location/signature/trail only)")
+    s.add_argument("--no-code", "--noCode", action="store_true", help="Symbol mode: omit the body (location/signature/trail only)")
     s.add_argument("--offset", type=int, help="File mode: 1-based first line, like Read")
     s.add_argument("--limit", type=int, help="File mode: max lines, like Read")
-    s.add_argument("--symbols-only", action="store_true", dest="symbolsOnly", help="File mode: symbol map only, no source")
+    s.add_argument("--symbols-only", "--symbolsOnly", action="store_true", dest="symbolsOnly", help="File mode: symbol map only, no source")
 
     s = add_parser("search", "Locate symbols by name (locations only, no code)")
     s.add_argument("query", help="Symbol name or partial name")
@@ -195,7 +218,7 @@ def build_parser():
     s.add_argument("--path", help="Restrict to files under this directory")
     s.add_argument("--pattern", help='Glob filter, e.g. "**/*.test.ts"')
     s.add_argument("--format", choices=["tree", "flat", "grouped"])
-    s.add_argument("--max-depth", type=int, dest="maxDepth")
+    s.add_argument("--max-depth", "--maxDepth", type=int, dest="maxDepth")
 
     add_parser("status", "Index health: file/node/edge counts, backend, pending sync")
 

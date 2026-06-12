@@ -54,15 +54,24 @@ One-shot MCP call routed through CodeGraph's shared per-project daemon (auto-spa
 
 `cg.py` below = `python3 <skill-folder>/scripts/cg.py` by absolute path (`python` on Windows). Common flags on every subcommand: `--project PATH` (default: cwd) · `--timeout SECONDS` (default 120) · `--raw` (raw JSON-RPC result).
 
+Multi-word flags accept **either spelling** — kebab-case or the camelCase of the underlying MCP parameter: `--max-files`/`--maxFiles`, `--max-depth`/`--maxDepth`, `--symbols-only`/`--symbolsOnly`, `--no-code`/`--noCode`. Use whichever you remember; both resolve to the same argument.
+
 ```bash
 cg.py setup
     # Bootstrap, idempotent, cross-platform (macOS/Linux/Windows): installs the
     # codegraph CLI when missing (npm if available, else the official shell or
     # PowerShell installer) and runs `codegraph init` when .codegraph/ is
     # missing. The only cg.py subcommand that touches the network or system.
+    # The indexer's live progress spinner is suppressed (it would flood an
+    # agent's context through a non-TTY pipe); only the final "Indexed N files"
+    # / "N nodes, M edges" summary is printed. Full output is shown on failure.
 cg.py explore "<query>" [--max-files N]
     # Query = natural-language question OR bag of symbol/file names.
     # Returns verbatim source of relevant symbols grouped by file + call paths.
+    # Depth is budgeted server-side and scales with repo size; on a large repo a
+    # single call covers a bounded file set and the call count is limited. Pull
+    # more in per call with --max-files N (e.g. 30) instead of spending many
+    # explore calls; navigate the rest with search/files/node.
 cg.py node [SYMBOL] [--file F] [--line N] [--no-code] [--offset N] [--limit N] [--symbols-only]
     # SYMBOL alone: source + caller/callee trail (body included by default;
     #   every overload's body when the name is ambiguous; pin with --file/--line).
@@ -76,6 +85,15 @@ cg.py search <query> [--kind function|method|class|interface|type|variable|route
 cg.py callers <symbol> [--limit N]
 cg.py callees <symbol> [--limit N]
 cg.py impact <symbol> [--depth N]          # default depth 2
+    # callers/callees/impact resolve a method or FUNCTION name, not a container:
+    #   `callees AClass` is empty (a class has no outgoing calls) — query a
+    #   method, or use `explore`/`node` for the class. They also miss calls made
+    #   via reflection / DI / framework dispatch (Spring `doFilterInternal`, an
+    #   overridden callback, a route handler) — no static call edge exists; use
+    #   `explore`, which follows dynamic-dispatch hops. On a name shared by many
+    #   definitions they aggregate across all of them (results repeat / mix
+    #   sources) — disambiguate with `search <name> --kind …` first. Per-target
+    #   `--file`/`--line` pinning on these three is not available yet.
 cg.py files [--path DIR] [--pattern GLOB] [--format tree|flat|grouped] [--max-depth N]
 cg.py status
 ```
