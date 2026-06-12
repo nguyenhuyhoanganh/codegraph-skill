@@ -13,10 +13,14 @@ CodeGraph is a pre-computed SQLite knowledge graph of every symbol, edge, and fi
 
 Reach for it BEFORE and while writing or editing code — not just for questions: edit with the blast radius in view.
 
-All queries go through one script bundled in this skill's `scripts/` folder (it rides CodeGraph's shared daemon, so results are always freshness-checked and the first call's startup cost is amortized across the session):
+All queries go through one script bundled in this skill's `scripts/` folder (it rides CodeGraph's shared daemon, so results are always freshness-checked and the first call's startup cost is amortized across the session).
+
+**How to run every command in this file:** `cg.py …` is shorthand for invoking that script **by its absolute path** — it is `scripts/cg.py` inside the folder containing this SKILL.md. Resolve that path once and reuse it for the whole session; a bare relative `scripts/cg.py` only works if your working directory happens to be this skill's folder, and your working directory is usually the user's project instead. Use `python` instead of `python3` on Windows.
 
 ```bash
-python3 scripts/cg.py <tool> ... [--project PATH]   # --project defaults to cwd; use `python` on Windows
+# cg.py explore "query"        stands for, e.g.:
+python3 /home/me/.claude/skills/using-codegraph/scripts/cg.py explore "query" [--project PATH]
+# --project defaults to the current directory
 ```
 
 **MANDATORY: read [references/EXAMPLES.md](references/EXAMPLES.md) in full BEFORE running your first `cg.py` command in this conversation.** It shows each command's real output and the exact action to take on it. Do not skip it because the table below "looks clear" — the table only tells you WHICH command to run; the examples define HOW to use what comes back. Running commands without having read it counts as misusing this skill.
@@ -26,7 +30,7 @@ python3 scripts/cg.py <tool> ... [--project PATH]   # --project defaults to cwd;
 If `.codegraph/` exists in the project root, skip this — start querying. Otherwise run the bundled bootstrapper yourself (don't make the user do it):
 
 ```bash
-python3 scripts/cg.py setup [--project PATH]
+cg.py setup [--project PATH]
 ```
 
 Idempotent, works on macOS/Linux/Windows. It installs the codegraph CLI if missing (via npm, or the official installer when npm is absent — that's the only step needing network), then runs `codegraph init` if the index is missing (one-time; seconds on small repos, a few minutes on huge ones). Any query that finds something missing prints the same fix, so you can also just query and follow the error.
@@ -75,9 +79,10 @@ When a response starts with `⚠️ Some files referenced below were edited sinc
 
 ## Limitations
 
-- A tool reporting "not initialized" means `.codegraph/` is missing — run `codegraph init` (Setup above).
+- A tool reporting "not initialized" means `.codegraph/` is missing — run `cg.py setup` (Setup above).
 - Cross-file resolution is best-effort name matching; ambiguous calls may return multiple candidates.
 - The first `cg.py` call in a project pays daemon startup + a catch-up sync (seconds; longer right after large external changes like a `git pull`). Later calls are fast.
+- No Python on this machine? The plain `codegraph` CLI still covers `query`/`callers`/`callees`/`impact`/`files`/`status` (see "Plain CLI equivalents" in [references/REFERENCE.md](references/REFERENCE.md)) — run `codegraph sync` after edits, since the plain CLI skips the freshness daemon. Only `explore` and `node` need the script.
 
 ## Reference
 

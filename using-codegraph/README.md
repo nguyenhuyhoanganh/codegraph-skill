@@ -16,7 +16,7 @@ Windows install from python.org and use `python` instead of `python3`).
 Everything else is self-bootstrapping: the agent (or you) runs
 
 ```bash
-python3 scripts/cg.py setup
+python3 scripts/cg.py setup    # from this folder — or call scripts/cg.py by absolute path from anywhere
 ```
 
 which installs the CodeGraph CLI if missing (via npm, or the official

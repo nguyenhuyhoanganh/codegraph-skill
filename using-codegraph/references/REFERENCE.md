@@ -52,7 +52,7 @@ The index lives entirely in `.codegraph/` (SQLite + daemon socket). Indexing ski
 
 One-shot MCP call routed through CodeGraph's shared per-project daemon (auto-spawned, lingers ~5 min after the last client). The daemon runs the file watcher and reconciles the index on connect, so answers are freshness-checked — prefer `cg.py` over the plain CLI for queries.
 
-Common flags on every subcommand: `--project PATH` (default: cwd) · `--timeout SECONDS` (default 120) · `--raw` (raw JSON-RPC result).
+`cg.py` below = `python3 <skill-folder>/scripts/cg.py` by absolute path (`python` on Windows). Common flags on every subcommand: `--project PATH` (default: cwd) · `--timeout SECONDS` (default 120) · `--raw` (raw JSON-RPC result).
 
 ```bash
 cg.py setup
@@ -80,7 +80,7 @@ cg.py files [--path DIR] [--pattern GLOB] [--format tree|flat|grouped] [--max-de
 cg.py status
 ```
 
-Environment: `CODEGRAPH_BIN` overrides the binary (may include arguments, e.g. `CODEGRAPH_BIN="node /path/to/dist/bin/codegraph.js"`).
+Environment: `CODEGRAPH_BIN` overrides the binary (may include arguments, e.g. `CODEGRAPH_BIN="node /path/to/dist/bin/codegraph.js"`; on Windows backslash paths are fine — quote the value if the path has spaces: `CODEGRAPH_BIN="\"C:\Tools My\codegraph.exe\""`).
 
 Exit codes: `0` ok · `1` the tool reported an error (e.g. not initialized, symbol not found) · `2` setup error (binary missing, server died) · `3` timeout.
 

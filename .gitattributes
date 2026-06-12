@@ -1,0 +1,6 @@
+# Keep the script and docs byte-stable across platforms: a CRLF checkout on
+# Windows would break the script's shebang when the same clone is reused from
+# WSL/Git Bash, and would skew the byte-parity of documented outputs.
+* text=auto
+*.py text eol=lf
+*.md text eol=lf

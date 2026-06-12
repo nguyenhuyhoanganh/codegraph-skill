@@ -2,9 +2,14 @@
 
 Genuine captured outputs (from indexing the CodeGraph repo itself); `...`
 marks trimmed lines, user paths are sanitized, and counts/line numbers will
-differ in your project — the *shape* is what to rely on. Every command runs
+differ in your project — the *shape* is what to rely on.
+
+**`cg.py` in every example is shorthand for the script's absolute path** —
+`python3 <folder-of-this-skill>/scripts/cg.py` (`python` on Windows). Resolve
+it once; a bare relative `scripts/cg.py` only works from the skill's own
+folder, and you are usually in the user's project instead. Every command runs
 from any directory; add `--project /path/to/repo` when the project isn't the
-cwd. Use `python` instead of `python3` on Windows.
+cwd.
 
 ## Contents
 
@@ -17,12 +22,12 @@ cwd. Use `python` instead of `python3` on Windows.
 ## Scenario 1: First time in a project (bootstrap)
 
 ```
-$ python3 scripts/cg.py setup --project /work/my-app
+$ cg.py setup --project /work/my-app
 [setup] codegraph binary: /Users/me/.local/bin/codegraph
 [setup] no .codegraph/ in /work/my-app - building the index (one-time)...
 ◆  Indexed 216 files
 ●  3,537 nodes, 14,415 edges in 1.3s
-[setup] ready. Try: python3 scripts/cg.py explore "<your question>" --project /work/my-app
+[setup] ready. Try: python3 /home/me/.claude/skills/using-codegraph/scripts/cg.py explore "<your question>" --project /work/my-app
 ```
 
 Run it whenever a query errors with "not initialized" or "binary not found" —
@@ -33,7 +38,7 @@ it only installs/builds what's missing. Everything below assumes setup is done.
 User asks: *"how does the file watcher trigger an incremental sync?"*
 
 ```
-$ python3 scripts/cg.py explore "how does the file watcher trigger an incremental sync"
+$ cg.py explore "how does the file watcher trigger an incremental sync"
 ## Flow (call path among the symbols you queried)
 1. sync (src/extraction/index.ts:1397)
    ↓ calls
@@ -68,7 +73,7 @@ needs depth, follow up with `cg.py node <symbol>` — not with a file read.
 You're about to change `getExploreBudget`:
 
 ```
-$ python3 scripts/cg.py node getExploreBudget
+$ cg.py node getExploreBudget
 ## getExploreBudget (function)
 **Location:** src/mcp/tools.ts:82
 **Signature:** `(fileCount: number): number`
@@ -84,7 +89,7 @@ $ python3 scripts/cg.py node getExploreBudget
 Wider check before a refactor:
 
 ```
-$ python3 scripts/cg.py impact getExploreBudget --depth 2
+$ cg.py impact getExploreBudget --depth 2
 ## Impact: "getExploreBudget" affects 7 symbols
 
 **src/mcp/tools.ts:**
@@ -116,7 +121,7 @@ sleeps or re-greps "just in case".
 ## Scenario 5: Find and read a specific file
 
 ```
-$ python3 scripts/cg.py search QueryBuilder --limit 2
+$ cg.py search QueryBuilder --limit 2
 ## Search Results (2 found)
 ### QueryBuilder (class)
 src/db/queries.ts:176
@@ -125,7 +130,7 @@ src/db/queries.ts:176
 Read it (instead of your file-read tool — same bytes, plus dependents):
 
 ```
-$ python3 scripts/cg.py node --file src/db/queries.ts --offset 170 --limit 8
+$ cg.py node --file src/db/queries.ts --offset 170 --limit 8
 **src/db/queries.ts** — 1840 lines, 78 symbols · used by 34 files: __tests__/db-perf.test.ts, __tests__/resolution.test.ts, __tests__/security.test.ts, src/context/index.ts, src/extraction/index.ts, src/graph/queries.ts, src/graph/traversal.ts, src/index.ts, +26 more
 
 173  /**
