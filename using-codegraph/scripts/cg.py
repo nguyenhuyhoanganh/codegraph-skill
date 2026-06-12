@@ -46,6 +46,13 @@ for _stream in (sys.stdout, sys.stderr):
     if hasattr(_stream, "reconfigure"):
         _stream.reconfigure(encoding="utf-8", errors="replace", line_buffering=True)
 
+# Absolute self-reference for every hint this script prints. Agents (often
+# small models) copy error messages verbatim, and a relative "scripts/cg.py"
+# only works from one directory - so every hint must carry the real path.
+SELF = os.path.abspath(__file__)
+SELF_Q = f'"{SELF}"' if " " in SELF else SELF
+CG = ("python" if os.name == "nt" else "python3") + " " + SELF_Q
+
 # The daemon answers warm queries in milliseconds, but the *first* call in a
 # project pays daemon startup plus a catch-up sync of files edited since the
 # last session - on a large repo that reconciliation can take tens of seconds.
@@ -57,7 +64,7 @@ INSTALL_PS1_URL = "https://raw.githubusercontent.com/colbymchenry/codegraph/main
 INSTALL_HINT = (
     "codegraph binary not found.\n"
     "Run the bundled bootstrapper - it installs codegraph and builds the index:\n"
-    "  python3 scripts/cg.py setup     (python scripts/cg.py setup on Windows)\n"
+    f"  {CG} setup\n"
     "Manual alternatives: `npm i -g @colbymchenry/codegraph`, or\n"
     f"  curl -fsSL {INSTALL_SH_URL} | sh   (lands at ~/.local/bin/codegraph)\n"
     f"  Windows: irm {INSTALL_PS1_URL} | iex\n"
@@ -68,6 +75,10 @@ INSTALL_HINT = (
 def resolve_binary():
     override = os.environ.get("CODEGRAPH_BIN")
     if override:
+        if os.name == "nt":
+            # POSIX-mode shlex eats Windows backslashes; doubling them first
+            # preserves paths while still honoring quoted segments.
+            return shlex.split(override.replace("\\", "\\\\"))
         return shlex.split(override)
     found = shutil.which("codegraph")
     if found:
@@ -130,7 +141,8 @@ def run_setup(args):
         if subprocess.call(binary + ["init", project]) != 0:
             print("[setup] `codegraph init` failed - see its output above.", file=sys.stderr)
             return 2
-    print('[setup] ready. Try: python3 scripts/cg.py explore "<your question>" --project ' + project)
+    proj_q = f'"{project}"' if " " in project else project
+    print(f'[setup] ready. Try: {CG} explore "<your question>" --project {proj_q}')
     return 0
 
 
@@ -144,7 +156,8 @@ def build_parser():
         prog="cg.py",
         description="Query the CodeGraph index (one-shot MCP call).",
         epilog="Before first use, read references/EXAMPLES.md (sibling of scripts/) — "
-               "real outputs of every command and how to act on them.",
+               "real outputs of every command and how to act on them. "
+               f'Docs write this script as "cg.py", which means: {CG}',
     )
     sub = p.add_subparsers(dest="tool", required=True)
 
@@ -235,9 +248,10 @@ def main():
     while not os.path.isdir(os.path.join(probe, ".codegraph")):
         parent = os.path.dirname(probe)
         if parent == probe:
+            proj_q = f'"{project}"' if " " in project else project
             print(f"CodeGraph isn't initialized for {project}.\n"
                   f"Bootstrap it (installs nothing that's already there):\n"
-                  f"  python3 scripts/cg.py setup --project {shlex.quote(project)}", file=sys.stderr)
+                  f"  {CG} setup --project {proj_q}", file=sys.stderr)
             return 1
         probe = parent
     # A connection can rarely wedge if it lands exactly as the daemon starts a
